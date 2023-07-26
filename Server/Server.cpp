@@ -11,7 +11,7 @@ boost::interprocess::shared_memory_object* AllocateSharedMemory(const char* Memo
 {
 	boost::interprocess::shared_memory_object* shm_obj = new boost::interprocess::shared_memory_object
 	(
-		boost::interprocess::create_only,
+		boost::interprocess::open_or_create,
 		MemoryBlockName,
 		boost::interprocess::read_write
 	);
@@ -24,7 +24,7 @@ int main()
 	int stopper = 0;
 	ServerRequest server_object;
 
-	boost::interprocess::shared_memory_object* MemoryBlockPointer = AllocateSharedMemory("SharedMemory2");
+	boost::interprocess::shared_memory_object* MemoryBlockPointer = AllocateSharedMemory("SharedMemory");
 	boost::interprocess::mapped_region MemoryRegion(*MemoryBlockPointer, boost::interprocess::read_write);
 	Shared* shared_object_pointer = new (MemoryRegion.get_address()) Shared;
 
@@ -37,7 +37,9 @@ int main()
 		if (shared_object_pointer->New_Request)
 		{
 			shared_object_pointer->New_Request = false;
-			(server_object.*((void (ServerRequest::*)())shared_object_pointer->buffer))();
+			void (Request:: * ExecuteRequest)(void);
+			std::memcpy(&ExecuteRequest, &shared_object_pointer->buffer, sizeof(ExecuteRequest));
+			(server_object.*ExecuteRequest)();
 		}
 	}
 

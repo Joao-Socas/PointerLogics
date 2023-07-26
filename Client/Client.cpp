@@ -16,7 +16,7 @@ boost::interprocess::shared_memory_object* OpenSharedMemory(const char* MemoryBl
 
 int main()
 {
-	boost::interprocess::shared_memory_object* memory_block_pointer = OpenSharedMemory("SharedMemory2");
+	boost::interprocess::shared_memory_object* memory_block_pointer = OpenSharedMemory("SharedMemory");
 	boost::interprocess::mapped_region MemoryRegion(*memory_block_pointer, boost::interprocess::read_write);
 	Shared* shared_object_pointer = (Shared*)MemoryRegion.get_address();
 
@@ -29,17 +29,14 @@ int main()
 			std::cin >> input;
 			if (input == 'x')
 			{
-				for (int i = 0; i < sizeof(void(Request::*)()); i++)
-				{
-					shared_object_pointer->buffer.get()[i] = 
-				}
-				(int)&shared_object_pointer->SayHi;
+				std::memcpy(&shared_object_pointer->buffer, &(shared_object_pointer->SayHello), sizeof(shared_object_pointer->SayHello));
+				shared_object_pointer->New_Request = true;
 			}
 			if (input == 'y')
 			{
-				shared_object_pointer->buffer = shared_object_pointer->SayHello;
-			}
+				std::memcpy(&shared_object_pointer->buffer, &(shared_object_pointer->SayHi), sizeof(shared_object_pointer->SayHi));
 			shared_object_pointer->New_Request = true;
+			}
 			Sleep(20);
 		}
 	}
