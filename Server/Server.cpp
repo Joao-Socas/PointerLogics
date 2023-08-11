@@ -4,8 +4,10 @@
 #include <fstream>
 #include <chrono>
 #include <thread>
-#include <Shared.h>
-#include <ServerRequest.h>
+#include <memory>
+#include <Connection.h>
+
+
 
 boost::interprocess::shared_memory_object* AllocateSharedMemory(const char* MemoryBlockName)
 {
@@ -15,36 +17,41 @@ boost::interprocess::shared_memory_object* AllocateSharedMemory(const char* Memo
 		MemoryBlockName,
 		boost::interprocess::read_write
 	);
-	shm_obj->truncate(sizeof(Shared));
+	shm_obj->truncate(sizeof(Connection));
 	return shm_obj;
 }
 
 int main()
 {
 	int stopper = 0;
-	ServerRequest server_object;
+	unsigned short port_num = 3333;
 
-	boost::interprocess::shared_memory_object* MemoryBlockPointer = AllocateSharedMemory("SharedMemory");
-	boost::interprocess::mapped_region MemoryRegion(*MemoryBlockPointer, boost::interprocess::read_write);
-	Shared* shared_object_pointer = new (MemoryRegion.get_address()) Shared;
+	boost::interprocess::shared_memory_object* memory_block_pointer = AllocateSharedMemory("SharedMemory");
+	boost::interprocess::mapped_region memory_region(*memory_block_pointer, boost::interprocess::read_write);
+	Connection* connection = new (memory_region.get_address()) Connection;
+	boost::asio::io_context server_io_context;
+	boost::asio::ip::tcp::endpoint Endpoint = boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port_num);;
+	boost::asio::ip::tcp::acceptor Acceptor = boost::asio::ip::tcp::acceptor(server_io_context, Endpoint);
+	boost::asio::ip::tcp::socket Socket = boost::asio::ip::tcp::socket(server_io_context);
+	std::cout << "Waiting connection..." << std::endl;
+	Acceptor.accept(Socket);
 
-	shared_object_pointer->SayHi = (void (Request::*)())(&(ServerRequest::SayHi));
-	shared_object_pointer->SayHello = (void (Request::*)())(&(ServerRequest::SayHello));
+	connection->raw_ip_address = Socket.remote_endpoint().address().to_string();
+	connection->port_num = 3333;
 
+	//shared_object_pointer->SayHi = (void (Request::*)())(&(ServerRequest::SayHi));
+	//shared_object_pointer->SayHello = (void (Request::*)())(&(ServerRequest::SayHello));
 
-	while (not shared_object_pointer->Exit)
+	std::cout << "Connected!" << std::endl;
+	char input = '0';
+	while (input != 'z')
 	{
-		if (shared_object_pointer->New_Request)
-		{
-			shared_object_pointer->New_Request = false;
-			void (Request:: * ExecuteRequest)(void);
-			std::memcpy(&ExecuteRequest, &shared_object_pointer->buffer, sizeof(ExecuteRequest));
-			(server_object.*ExecuteRequest)();
-		}
+		std::cin >> input;
+		/*std::this_thread::sleep_for(std::chrono::seconds(20));*/
 	}
 
-	boost::interprocess::shared_memory_object::remove(MemoryBlockPointer->get_name());
-	delete MemoryBlockPointer;
+	boost::interprocess::shared_memory_object::remove(memory_block_pointer->get_name());
+	delete memory_block_pointer;
 
 	return 0;
 }
